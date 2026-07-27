@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+httpx
+earthengine-api
+numpy
+scikit-learn
+python-multipart
+websockets
+wsproto

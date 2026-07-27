@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroVision — Field Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #22c55e;
+    --primary-dark: #15803d;
+    --primary-glow: rgba(34, 197, 94, 0.5);
+    --earth: #78350f;
+    --sun: #eab308;
+    --bg-dark: #052e16; /* Deep forest green */
+    --text-main: #f0fdf4;
+    --text-muted: #bbf7d0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    background-color: var(--bg-dark);
+    background-image: radial-gradient(circle at 50% 0%, #14532d 0%, var(--bg-dark) 80%);
+    color: var(--text-main);
+    overflow: hidden;
+    perspective: 1200px; /* 3D Perspective */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* --- 3D ENVIRONMENT --- */
+  .scene {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    transform-style: preserve-3d;
+  }
+
+  /* 3D Topographic Field / Floor */
+  .field-floor {
+    position: absolute;
+    bottom: -40vh; left: -50vw;
+    width: 200vw; height: 120vh;
+    background-image: 
+      repeating-linear-gradient(rgba(34, 197, 94, 0.15) 0, transparent 2px, transparent 40px),
+      repeating-linear-gradient(90deg, rgba(34, 197, 94, 0.15) 0, transparent 2px, transparent 40px);
+    background-size: 80px 80px;
+    transform: rotateX(75deg) translateZ(-50px);
+    animation: moveField 20s linear infinite;
+    mask-image: linear-gradient(to top, rgba(0,0,0,1), rgba(0,0,0,0));
+    -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1), rgba(0,0,0,0));
+  }
+
+  @keyframes moveField {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 80px; }
+  }
+
+  /* Floating Sun & Atmospheric Orbs */
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(50px);
+    animation: floatOrb linear infinite alternate;
+  }
+
+  .orb-sun {
+    width: 300px; height: 300px;
+    top: 10%; right: 15%;
+    background: radial-gradient(circle, var(--sun), transparent 70%);
+    opacity: 0.6;
+    transform: translateZ(-300px);
+    animation-duration: 12s;
+  }
+  
+  .orb-earth {
+    width: 200px; height: 200px;
+    bottom: 20%; left: 10%;
+    background: radial-gradient(circle, var(--primary-dark), transparent 70%);
+    opacity: 0.8;
+    transform: translateZ(-100px);
+    animation-duration: 9s;
+  }
+
+  @keyframes floatOrb {
+    0% { transform: translateY(0px) translateZ(calc(var(--z, 0) * 1px)); }
+    100% { transform: translateY(-40px) translateZ(calc(var(--z, 0) * 1px)); }
+  }
+
+  /* Floating 3D Leaves */
+  .leaf {
+    position: absolute;
+    font-size: 24px;
+    pointer-events: none;
+    transform-style: preserve-3d;
+    animation: fall linear infinite;
+    opacity: 0.6;
+    filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));
+  }
+
+  @keyframes fall {
+    0% { 
+      transform: translateY(-10vh) translateX(0) rotate3d(1, 1, 1, 0deg) translateZ(var(--z, 0px)); 
+    }
+    100% { 
+      transform: translateY(110vh) translateX(100px) rotate3d(1, 1, 1, 720deg) translateZ(var(--z, 0px)); 
+    }
+  }
+
+  /* --- 3D INTERACTIVE CARD --- */
+  .card-container {
+    position: relative;
+    z-index: 10;
+    width: 440px;
+    transform-style: preserve-3d;
+    transition: transform 0.1s ease-out; /* Smooth mouse tracking */
+  }
+
+  .auth-card {
+    background: rgba(6, 78, 59, 0.4);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(134, 239, 172, 0.2);
+    border-radius: 30px;
+    padding: 50px 40px;
+    box-shadow: 
+      0 40px 80px rgba(0,0,0,0.7),
+      inset 0 0 0 1px rgba(134, 239, 172, 0.1);
+    transform-style: preserve-3d;
+  }
+
+  /* 3D Z-Depth Extrusions */
+  .card-header, .tabs, .form-group, .action-btn, .brand-logo, .leaf-decor {
+    transform: translateZ(40px);
+    transition: transform 0.3s;
+  }
+
+  /* Leaf Decor coming out of the card */
+  .leaf-decor {
+    position: absolute;
+    top: -20px; right: -20px;
+    font-size: 4rem;
+    transform: translateZ(80px) rotate(15deg);
+    filter: drop-shadow(0 15px 15px rgba(0,0,0,0.4));
+    opacity: 0.9;
+  }
+
+  .brand-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: 25px;
+    transform: translateZ(60px);
+    text-shadow: 0 10px 20px rgba(0,0,0,0.5);
+  }
+
+  .brand-logo .icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, var(--primary), var(--sun));
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+    box-shadow: 0 10px 25px var(--primary-glow);
+  }
+
+  .card-header {
+    text-align: center;
+    margin-bottom: 35px;
+    transform: translateZ(50px);
+  }
+
+  .card-header h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #fff, #bbf7d0);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  .card-header p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    background: rgba(0,0,0,0.3);
+    padding: 6px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #86efac;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.3s;
+    position: relative;
+    z-index: 2;
+  }
+
+  .tab.active { color: #064e3b; }
+
+  .tab-slider {
+    position: absolute;
+    top: 6px; left: 6px;
+    height: calc(100% - 12px);
+    width: calc(50% - 6px);
+    background: var(--primary);
+    border-radius: 8px;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 1;
+    box-shadow: 0 0 15px var(--primary-glow);
+  }
+
+  /* Form Inputs */
+  .form-group {
+    margin-bottom: 22px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #dcfce7;
+    margin-bottom: 8px;
+  }
+
+  .input-wrapper input {
+    width: 100%;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(134, 239, 172, 0.2);
+    border-radius: 12px;
+    padding: 15px 18px;
+    color: white;
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    transition: all 0.3s;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  .input-wrapper input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: rgba(0,0,0,0.4);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.5), 0 0 0 4px rgba(34, 197, 94, 0.15);
+  }
+
+  /* 3D Button */
+  .action-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    border: none;
+    padding: 16px;
+    border-radius: 12px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 10px 25px var(--primary-glow);
+    transform: translateZ(50px);
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.5px;
+  }
+
+  .action-btn:hover {
+    transform: translateZ(65px) scale(1.03);
+    box-shadow: 0 15px 35px rgba(34, 197, 94, 0.6);
+  }
+
+  .action-btn:active {
+    transform: translateZ(30px) scale(0.98);
+  }
+
+  #msg {
+    margin-top: 20px;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    text-align: center;
+    display: none;
+    font-weight: 500;
+    transform: translateZ(30px);
+  }
+
+  #msg.error {
+    display: block;
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  #msg.success {
+    display: block;
+    background: rgba(34, 197, 94, 0.15);
+    color: #86efac;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  #register-form { display: none; }
+
+  /* --- SEEDLING LOADER --- */
+  #loader {
+    position: fixed; inset: 0; z-index: 10000;
+    background: var(--bg-dark);
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    transition: opacity 1s, visibility 1s;
+  }
+  #loader.hidden { opacity: 0; visibility: hidden; }
+
+  .seedling {
+    font-size: 4rem;
+    animation: grow 2s ease-in-out infinite alternate;
+    filter: drop-shadow(0 0 20px var(--primary-glow));
+    transform-origin: bottom center;
+  }
+
+  @keyframes grow {
+    0% { transform: scaleY(0.8) scaleX(1.1); filter: drop-shadow(0 0 10px var(--primary-dark)); }
+    100% { transform: scaleY(1.2) scaleX(0.9); filter: drop-shadow(0 0 40px var(--primary)); }
+  }
+
+  .loader-text {
+    margin-top: 25px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: var(--primary);
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+  <!-- LOADER -->
+  <div id="loader">
+    <div class="seedling">🌱</div>
+    <div class="loader-text">Cultivating Data...</div>
+  </div>
+
+  <!-- 3D BACKGROUND ENVIRONMENT -->
+  <div class="scene">
+    <div class="field-floor"></div>
+    <div class="orb orb-sun" style="--z: -300;"></div>
+    <div class="orb orb-earth" style="--z: 100;"></div>
+    
+    <!-- 3D Falling Leaves -->
+    <div id="leaves"></div>
+  </div>
+
+  <!-- 3D INTERACTIVE CARD -->
+  <div class="card-container" id="card-container">
+    <div class="auth-card">
+      <div class="leaf-decor">🌿</div>
+      
+      <div class="brand-logo">
+        <div class="icon">🌾</div>
+        AgroVision
+      </div>
+
+      <div class="card-header">
+        <h2 id="form-title">Field Portal</h2>
+        <p id="form-subtitle">Access your live satellite crop health monitor and intelligence dashboard.</p>
+      </div>
+
+      <div class="tabs">
+        <div class="tab-slider" id="tab-slider"></div>
+        <div class="tab active" id="tab-login" onclick="setTab('login')">Farmer Login</div>
+        <div class="tab" id="tab-register" onclick="setTab('register')">Register Farm</div>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <div id="login-form">
+        <div class="form-group">
+          <label>Farmer ID (Username)</label>
+          <div class="input-wrapper">
+            <input type="text" id="l-user" placeholder="Enter your Farmer ID" autocomplete="username">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Access Code (Password)</label>
+          <div class="input-wrapper">
+            <input type="password" id="l-pass" placeholder="Enter your Access Code" autocomplete="current-password">
+          </div>
+        </div>
+        <button class="action-btn" onclick="doAction('login')">
+          Access Farm Data
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+
+      <!-- REGISTER FORM -->
+      <div id="register-form">
+        <div class="form-group">
+          <label>New Farmer ID</label>
+          <div class="input-wrapper">
+            <input type="text" id="r-user" placeholder="Choose a Farmer ID" autocomplete="username">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Create Access Code</label>
+          <div class="input-wrapper">
+            <input type="password" id="r-pass" placeholder="Create a secure code" autocomplete="new-password">
+          </div>
+        </div>
+        <button class="action-btn" onclick="doAction('register')">
+          Plant New Seed (Register)
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+
+      <div id="msg"></div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- LOADER LOGIC ---
+    setTimeout(() => {
+      document.getElementById('loader').classList.add('hidden');
+    }, 1800);
+
+    // --- GENERATE 3D FALLING LEAVES ---
+    const leavesContainer = document.getElementById('leaves');
+    const leafTypes = ['🍃', '🍂', '🌿'];
+    for(let i = 0; i < 15; i++) {
+      let leaf = document.createElement('div');
+      leaf.className = 'leaf';
+      leaf.textContent = leafTypes[Math.floor(Math.random() * leafTypes.length)];
+      leaf.style.left = `${Math.random() * 100}vw`;
+      leaf.style.animationDuration = `${Math.random() * 8 + 6}s`;
+      leaf.style.animationDelay = `${Math.random() * 5}s`;
+      leaf.style.setProperty('--z', `${Math.random() * 400 - 200}px`);
+      leavesContainer.appendChild(leaf);
+    }
+
+    // --- 3D MOUSE PARALLAX EFFECT ---
+    const container = document.getElementById('card-container');
+    
+    document.addEventListener('mousemove', (e) => {
+      // Calculate mouse position relative to center of screen
+      const xAxis = (window.innerWidth / 2 - e.pageX) / 25;
+      const yAxis = (window.innerHeight / 2 - e.pageY) / 25;
+      
+      // Apply 3D rotation to the container
+      container.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
+    });
+
+    // Reset rotation when mouse leaves the window
+    document.addEventListener('mouseleave', () => {
+      container.style.transform = `rotateY(0deg) rotateX(0deg)`;
+      container.style.transition = `transform 0.5s ease-out`;
+    });
+    
+    document.addEventListener('mouseenter', () => {
+      container.style.transition = `transform 0.1s ease-out`;
+    });
+
+    // --- UI LOGIC ---
+    function setTab(mode) {
+      const isLogin = mode === 'login';
+      
+      document.getElementById('login-form').style.display = isLogin ? 'block' : 'none';
+      document.getElementById('register-form').style.display = !isLogin ? 'block' : 'none';
+      
+      document.getElementById('tab-login').classList.toggle('active', isLogin);
+      document.getElementById('tab-register').classList.toggle('active', !isLogin);
+      
+      document.getElementById('tab-slider').style.transform = isLogin ? 'translateX(0)' : 'translateX(100%)';
+      
+      document.getElementById('form-title').textContent = isLogin ? 'Field Portal' : 'Farm Registration';
+      document.getElementById('form-subtitle').textContent = isLogin 
+        ? 'Access your live satellite crop health monitor and intelligence dashboard.' 
+        : 'Register your agricultural profile to start tracking crop data.';
+      
+      document.getElementById('msg').className = '';
+      document.getElementById('msg').style.display = 'none';
+    }
+
+    function showMsg(msg, type) {
+      const m = document.getElementById('msg');
+      m.textContent = msg;
+      m.className = type;
+    }
+
+    async function doAction(mode) {
+      const u = document.getElementById(mode==='login'?'l-user':'r-user').value.trim();
+      const p = document.getElementById(mode==='login'?'l-pass':'r-pass').value;
+
+      if(!u || !p) {
+        showMsg('Please provide all credentials.', 'error');
+        return;
+      }
+
+      const btn = document.querySelector(`#${mode}-form .action-btn`);
+      const originalText = btn.innerHTML;
+      btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Harvesting Data...`;
+      
+      const fd = new FormData();
+      fd.append('username', u);
+      fd.append('password', p);
+
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/${mode}`, { method: 'POST', body: fd });
+        const data = await res.json();
+
+        if(res.status === 200) {
+          if(mode === 'login') {
+            showMsg('Access Granted. Entering Field Dashboard...', 'success');
+            localStorage.setItem('user', u);
+            // Cinematic 3D zoom before redirect
+            container.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            container.style.transform = `scale(1.5) translateZ(300px)`;
+            container.style.opacity = '0';
+            setTimeout(() => window.location.href = 'index.html', 800);
+          } else {
+            showMsg('Farm Registered. Proceed to login.', 'success');
+            btn.innerHTML = originalText;
+            setTimeout(() => setTab('login'), 1500);
+          }
+        } else {
+          showMsg(data.detail || 'Access Denied', 'error');
+          btn.innerHTML = originalText;
+        }
+      } catch(e) {
+        showMsg('Server unreachable. Check connection.', 'error');
+        btn.innerHTML = originalText;
+      }
+    }
+  </script>
+</body>
+</html>
