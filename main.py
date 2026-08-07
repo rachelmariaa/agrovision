@@ -15,8 +15,15 @@ import datetime
 import httpx
 from typing import List
 from ml_model import agro_ml
+from report_routes import router as report_router
+from fields_routes import router as fields_router
+from advisory_routes import router as advisory_router
 
 app = FastAPI(title="AgroVision API", version="2.0")
+
+app.include_router(report_router)
+app.include_router(fields_router)
+app.include_router(advisory_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,18 +33,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/app")
 async def serve_app():
+    if os.path.exists("frontend/dist/index.html"):
+        from fastapi.responses import FileResponse
+        return FileResponse("frontend/dist/index.html")
     return RedirectResponse(url="/static/index.html")
 
 @app.get("/login-page")
 async def serve_login():
+    if os.path.exists("frontend/dist/index.html"):
+        from fastapi.responses import FileResponse
+        return FileResponse("frontend/dist/index.html")
     return RedirectResponse(url="/static/login.html")
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     from fastapi.responses import Response
     return Response(status_code=204)
+
 
 # ---------------------------
 # INIT GOOGLE EARTH ENGINE
@@ -381,5 +396,10 @@ async def root():
         "endpoints": ["/ndvi", "/ndvi/history", "/ndvi/stats", "/weather", "/soil", "/login", "/register", "/ws/logs"]
     }
 
-# Serve HTML files statically — MUST be mounted last so routes above take priority
+if os.path.exists("frontend/dist"):
+    app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
 app.mount("/static", StaticFiles(directory=".", html=True), name="static")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -1,58 +1,70 @@
-# 🌾 AgroVision — AI & Satellite Farming Dashboard
+# 🌾 AgroVision — Legendary Satellite Intelligence Platform
 
-AgroVision is an agricultural monitoring platform using FastAPI, Machine Learning (Random Forest), and Sentinel-2 Satellite Telemetry.
+AgroVision is a modern agricultural monitoring application featuring Sentinel-2 NDVI satellite telemetry, AI leaf disease diagnostics, soil/weather analytics, and multi-language support (8 Indian languages).
 
 ---
 
-## 🚀 Quick Start (How to Run)
+## 🚀 Setup Instructions for New Developers
 
-### 1. Create & Activate Virtual Environment
+Follow these steps after running `git clone <repo-url>` or `git pull`:
 
-**Windows (PowerShell / CMD):**
+---
+
+### 1. 🐍 Backend Setup (Python / FastAPI)
+
+Open Terminal / PowerShell in the project root folder (`AgroVision`):
+
 ```bash
+# 1. Create a virtual environment
 python -m venv .venv
+
+# 2. Activate virtual environment
+# On Windows (PowerShell):
 .venv\Scripts\activate
-```
 
-**macOS / Linux:**
-```bash
-python3 -m venv .venv
+# On macOS / Linux:
 source .venv/bin/activate
-```
 
----
-
-### 2. Install Dependencies
-
-```bash
+# 3. Install Python dependencies
 pip install -r requirements.txt
+
+# 4. Start Backend Server
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 ---
 
-### 3. Start the Server
+### 2. ⚡ Frontend Setup (React / Vite)
+
+Open a **second** Terminal tab / window in the `frontend` folder:
 
 ```bash
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# 1. Navigate to frontend directory
+cd frontend
+
+# 2. Install Node dependencies
+npm install
+
+# 3. Start Frontend Dev Server
+npm run dev
 ```
 
 ---
 
-## 🌐 Open in Browser
+### 🌐 Accessing the App
 
-Once the server is running:
+Once both servers are running:
 
-| Page | URL |
-|---|---|
-| 🏠 **Login Page** | [http://localhost:8000/login-page](http://localhost:8000/login-page) |
-| 📊 **Dashboard** | [http://localhost:8000/app](http://localhost:8000/app) |
-| 📖 **Interactive API Docs** | [http://localhost:8000/docs](http://localhost:8000/docs) |
+- 📊 **AgroVision Web App**: [http://localhost:5173](http://localhost:5173)
+- 🔌 **FastAPI Backend API**: [http://localhost:8000](http://localhost:8000)
+- 📖 **Interactive Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ---
 
-## ⚡ Features
-- 🛰️ **NDVI Satellite Telemetry** (Sentinel-2 with automated offline simulation fallback)
-- 💧 **NDWI Soil Moisture Analysis**
-- 🌤️ **Real-time Weather Integration** (Open-Meteo API)
-- 🧠 **ML Crop Recommendation & Health Model** (Random Forest)
-- 🔌 **Live WebSocket Terminal Logs** (`ws://localhost:8000/ws/logs`)
+## ⚡ Key Features
+- 🛰️ **Live Satellite NDVI Telemetry**: Instant vegetation health & soil moisture lookup via map click.
+- 🔬 **AI Crop Doctor (Computer Vision)**: Leaf photo diagnostic scanner with NPK fertilizer dosage & care plans.
+- 🌾 **Field Manager**: Interactive polygon mapping & custom farm field boundary registration.
+- 📖 **Quick Guide**: Step-by-step interactive manual & NDVI health simulator.
+- 🌐 **Multi-Language Support**: 8 Indian languages (English, Hindi, Kannada, Telugu, Tamil, Marathi, Punjabi, Bengali).
+- 📄 **PDF Crop Reports**: Instant localized PDF telemetry report generation.
