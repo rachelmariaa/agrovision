@@ -167,17 +167,17 @@ def classify_ndvi(ndvi_value):
     if ndvi_value is None:
         return {"category": "Unknown", "color": "#888888", "description": "No data available"}
     if ndvi_value < 0.0:
-        return {"category": "Water / Non-vegetated", "color": "#1E90FF", "description": "Water bodies or non-vegetated surfaces"}
+        return {"category": "Water Body", "color": "#1E90FF", "description": "Ocean, sea, river, lake, or pond - not suitable for agriculture"}
     elif ndvi_value < 0.1:
-        return {"category": "Bare Soil / Rock", "color": "#CD853F", "description": "Bare soil, rock, or built-up areas"}
+        return {"category": "Bare Soil / Rock", "color": "#CD853F", "description": "Bare soil, rock, sand, or built-up areas with no vegetation"}
     elif ndvi_value < 0.2:
-        return {"category": "Sparse Vegetation", "color": "#DAA520", "description": "Sparse or stressed vegetation"}
+        return {"category": "Sparse Vegetation", "color": "#DAA520", "description": "Very little plant coverage - sparse or stressed vegetation"}
     elif ndvi_value < 0.4:
-        return {"category": "Moderate Vegetation", "color": "#9ACD32", "description": "Moderate vegetation coverage"}
+        return {"category": "Moderate Vegetation", "color": "#9ACD32", "description": "Moderate plant coverage - suitable for agriculture"}
     elif ndvi_value < 0.6:
-        return {"category": "Dense Vegetation", "color": "#32CD32", "description": "Dense, healthy vegetation"}
+        return {"category": "Dense Vegetation", "color": "#32CD32", "description": "Good plant coverage - healthy crops or forest"}
     else:
-        return {"category": "Very Dense Vegetation", "color": "#006400", "description": "Very dense, highly productive vegetation"}
+        return {"category": "Very Dense Vegetation", "color": "#006400", "description": "Very dense, highly productive vegetation - excellent conditions"}
 
 # ---------------------------
 # NDVI HISTORY (IN-MEMORY)
@@ -193,10 +193,36 @@ async def get_ndvi(lat: float, lon: float):
     try:
         if not EE_INITIALIZED:
             await broadcaster.broadcast(f"[NDVI] ℹ️ EE offline. Generating simulated Sentinel-2 telemetry...")
-            # Generate deterministic pseudo-random NDVI value between 0.25 and 0.78 based on coordinates
             import math
-            sim_val = 0.45 + 0.25 * math.sin(lat * 12.34 + lon * 56.78)
-            ndvi_val = round(max(0.1, min(0.9, sim_val)), 4)
+            
+            # Check if coordinates are in known water bodies (Indian Ocean, Arabian Sea, Bay of Bengal)
+            is_water = False
+            
+            # Arabian Sea (west of India): lon < 72 and lat between 8-24
+            if lon < 72 and 8 <= lat <= 24:
+                is_water = True
+            # Bay of Bengal (east of India): lon > 85 and lat between 8-22
+            elif lon > 85 and 8 <= lat <= 22:
+                is_water = True
+            # Indian Ocean (south of India): lat < 8
+            elif lat < 8:
+                is_water = True
+            # Gulf of Mannar (between India and Sri Lanka): 78 < lon < 80 and 8 < lat < 10
+            elif 78 < lon < 80 and 8 < lat < 10:
+                is_water = True
+            
+            # If water body detected, return negative NDVI
+            if is_water:
+                # Generate negative NDVI for water (-0.1 to -0.4)
+                sim_val = -0.25 + 0.1 * math.sin(lat * 5.67 + lon * 8.91)
+                ndvi_val = round(max(-0.5, min(-0.05, sim_val)), 4)
+                await broadcaster.broadcast(f"[NDVI] 🌊 Water body detected at coordinates")
+            else:
+                # Enhanced variation for land areas
+                base_ndvi = 0.45 + 0.2 * math.sin(lat * 12.34 + lon * 56.78)
+                variation = 0.15 * math.cos(lat * 23.45 - lon * 34.56)
+                sim_val = base_ndvi + variation
+                ndvi_val = round(max(0.1, min(0.9, sim_val)), 4)
         else:
             point = ee.Geometry.Point([lon, lat])
             await broadcaster.broadcast(f"[NDVI] 🛰️ Querying Sentinel-2 SR Harmonized...")
@@ -318,7 +344,11 @@ async def get_soil(lat: float, lon: float):
         if not EE_INITIALIZED:
             await broadcaster.broadcast(f"[SOIL] ℹ️ EE offline. Generating simulated soil moisture data...")
             import math
-            ndwi_val = round(0.15 + 0.2 * math.cos(lat * 8.9 + lon * 12.3), 4)
+            # Enhanced variation for soil moisture
+            base_ndwi = 0.15 + 0.15 * math.cos(lat * 8.9 + lon * 12.3)
+            ndwi_variation = 0.1 * math.sin(lat * 15.2 - lon * 8.7)
+            sim_ndwi = base_ndwi + ndwi_variation
+            ndwi_val = round(max(-0.2, min(0.6, sim_ndwi)), 4)
         else:
             point = ee.Geometry.Point([lon, lat])
             image = (

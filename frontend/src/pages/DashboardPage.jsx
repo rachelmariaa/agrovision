@@ -11,6 +11,7 @@ import ScanHistory, { NdviLegend } from '../components/ScanHistory';
 import FarmerGuide from '../components/FarmerGuide';
 import FieldManager from '../components/FieldManager';
 import FieldDetailModal from '../components/FieldDetailModal';
+import WaterDetectionModal from '../components/WaterDetectionModal';
 import CropDoctorPage from './CropDoctorPage';
 import GuidePage from './GuidePage';
 import {
@@ -227,6 +228,10 @@ export default function DashboardPage({ user, onLogout }) {
   const [pendingGeoJSON, setPendingGeoJSON] = useState(null);
   const [selectedField, setSelectedField] = useState(null);
 
+  // Water detection modal state
+  const [waterModalOpen, setWaterModalOpen] = useState(false);
+  const [waterModalType, setWaterModalType] = useState('water'); // 'water' or 'bare'
+
   // Synchronize Navbar activeView with FieldManager drawer
   const handleViewChange = (view) => {
     setActiveView(view);
@@ -304,8 +309,36 @@ export default function DashboardPage({ user, onLogout }) {
   const handleMapClick = useCallback(async (lat, lon) => {
     if (drawingMode) return;
     setLoading(true);
+    
+    // Clear previous data first
+    setActiveScan(null);
+    setWeather(null);
+    setSoil(null);
+    setMlData(null);
+    
     try {
       const ndviData = await fetchNdvi(lat, lon);
+      
+      // Check if this is water body (NDVI < 0) - BLOCK IMMEDIATELY
+      if (ndviData.ndvi !== null && ndviData.ndvi < 0) {
+        setLoading(false);
+        setWaterModalType('water');
+        setWaterModalOpen(true);
+        return; // Stop here - don't set any state or proceed
+      }
+      
+      // Check if this is bare/non-vegetated area (NDVI < 0.1)
+      if (ndviData.ndvi !== null && ndviData.ndvi < 0.1) {
+        // Show warning modal
+        setLoading(false);
+        setWaterModalType('bare');
+        setWaterModalOpen(true);
+        // Store the scan data temporarily so we can use it if user confirms
+        window.tempScanData = { ndviData, lat, lon };
+        return;
+      }
+      
+      // Proceed with normal scan for valid land areas
       setActiveScan(ndviData);
       const [wxData, soilData] = await Promise.all([
         fetchWeather(lat, lon).catch(() => null),
@@ -320,9 +353,57 @@ export default function DashboardPage({ user, onLogout }) {
         } catch (e) { console.warn('ML bypassed:', e); }
       }
       refreshStatsAndHistory();
-    } catch (err) { console.error('Scan Error:', err); }
+    } catch (err) { 
+      console.error('Scan Error:', err);
+      alert('❌ Failed to scan location. Please try again.');
+    }
     finally { setLoading(false); }
   }, [drawingMode, refreshStatsAndHistory]);
+
+  // Handle modal close
+  const handleWaterModalClose = useCallback(() => {
+    setWaterModalOpen(false);
+    // Clear temporary scan data
+    window.tempScanData = null;
+  }, []);
+
+  // Handle bare area confirmation
+  const handleBareAreaConfirm = useCallback(async () => {
+    setWaterModalOpen(false);
+    const tempData = window.tempScanData;
+    if (!tempData) return;
+    
+    setLoading(true);
+    try {
+      const { ndviData, lat, lon } = tempData;
+      setActiveScan(ndviData);
+      const [wxData, soilData] = await Promise.all([
+        fetchWeather(lat, lon).catch(() => null),
+        fetchSoil(lat, lon).catch(() => null),
+      ]);
+      setWeather(wxData);
+      setSoil(soilData);
+      if (wxData && soilData && ndviData.ndvi !== null) {
+        try {
+          const ml = await fetchMlPredictions(ndviData.ndvi, wxData.soil_moisture, wxData.precipitation, wxData.temperature);
+          setMlData(ml);
+        } catch (e) { console.warn('ML bypassed:', e); }
+      }
+      refreshStatsAndHistory();
+    } catch (err) {
+      console.error('Scan Error:', err);
+    } finally {
+      setLoading(false);
+      window.tempScanData = null;
+    }
+  }, [refreshStatsAndHistory]);
+
+  // Location search → center map and scan
+  const handleLocationSearch = useCallback((lat, lon, displayName) => {
+    // Trigger a scan at the searched location
+    handleMapClick(lat, lon);
+    // Note: MapComponent will need a prop to center/zoom to these coordinates
+  }, [handleMapClick]);
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
@@ -336,6 +417,7 @@ export default function DashboardPage({ user, onLogout }) {
         activeScan={activeScan}
         activeView={activeView}
         setActiveView={handleViewChange}
+        onLocationSearch={handleLocationSearch}
       />
 
       {activeView === 'crop_doctor' ? (
@@ -410,6 +492,14 @@ export default function DashboardPage({ user, onLogout }) {
       )}
 
       <Footer activeScan={activeScan} />
+
+      {/* ── Water/Bare Area Detection Modal ── */}
+      <WaterDetectionModal
+        isOpen={waterModalOpen}
+        onClose={handleWaterModalClose}
+        onConfirm={handleBareAreaConfirm}
+        type={waterModalType}
+      />
 
       {/* ── New Field save modal ── */}
       {pendingGeoJSON && (

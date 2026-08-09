@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Map, Globe, User, LogOut, FileText, Download, Loader2, Wifi, WifiOff, Leaf, Languages, ChevronDown } from 'lucide-react';
+import { Map, Globe, User, LogOut, FileText, Download, Loader2, Wifi, WifiOff, Leaf, Languages, ChevronDown, Search } from 'lucide-react';
 import { downloadCropReport } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
-export default function Navbar({ mapLayer, setMapLayer, user, onLogout, activeScan, activeView = 'map', setActiveView }) {
+export default function Navbar({ mapLayer, setMapLayer, user, onLogout, activeScan, activeView = 'map', setActiveView, onLocationSearch }) {
   const { langCode, setLangCode, t, currentLangObj, LANGUAGES } = useLanguage();
   const [downloading, setDownloading] = useState(false);
   const [online, setOnline] = useState(true);
   const [time, setTime] = useState(new Date());
   const [logoError, setLogoError] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Live clock
   useEffect(() => {
@@ -31,12 +32,51 @@ export default function Navbar({ mapLayer, setMapLayer, user, onLogout, activeSc
   }, []);
 
   const handleDownloadReport = () => {
+    // Block download for water bodies
+    if (activeScan && activeScan.ndvi !== null && activeScan.ndvi < 0) {
+      alert('🌊 Cannot generate report for water bodies.\n\nPlease select a land area with vegetation for agricultural analysis.');
+      return;
+    }
+    
+    // Warn for bare areas
+    if (activeScan && activeScan.ndvi !== null && activeScan.ndvi < 0.1) {
+      const confirmed = window.confirm(
+        '⚠️ This area has very low vegetation coverage.\n\n' +
+        'The report may not provide accurate recommendations. Continue anyway?'
+      );
+      if (!confirmed) return;
+    }
+    
     const lat = activeScan ? activeScan.lat : 13.0;
     const lon = activeScan ? activeScan.lon : 75.0;
     const fieldName = activeScan ? `Field (${lat.toFixed(2)}, ${lon.toFixed(2)})` : 'Primary Field';
     setDownloading(true);
     downloadCropReport(lat, lon, 'Wheat / Paddy', user || 'Farmer', fieldName, langCode);
     setTimeout(() => setDownloading(false), 1200);
+  };
+
+  const handleSearchLocation = async (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim() || !onLocationSearch) return;
+    
+    // Use a free geocoding service (Nominatim from OpenStreetMap)
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`
+      );
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        const { lat, lon, display_name } = data[0];
+        onLocationSearch(parseFloat(lat), parseFloat(lon), display_name);
+        setSearchQuery('');
+      } else {
+        alert('Location not found. Please try a different search term.');
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      alert('Failed to search location. Please try again.');
+    }
   };
 
   const fmt = time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -299,6 +339,66 @@ export default function Navbar({ mapLayer, setMapLayer, user, onLogout, activeSc
         {/* Divider */}
         <div style={{ width: '1px', height: '26px', background: 'rgba(16,185,129,0.15)', flexShrink: 0 }} />
 
+        {/* Location Search (only when on map view) */}
+        {activeView === 'map' && onLocationSearch && (
+          <form onSubmit={handleSearchLocation} style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search location (e.g., Bangalore, Karnataka)"
+                style={{
+                  background: 'rgba(0,0,0,0.4)',
+                  border: '1px solid rgba(16,185,129,0.25)',
+                  borderRadius: '10px',
+                  padding: '6px 14px 6px 36px',
+                  color: '#e2e8f0',
+                  fontSize: '0.76rem',
+                  fontFamily: "'Outfit', sans-serif",
+                  width: '280px',
+                  outline: 'none',
+                  transition: 'all 0.2s ease',
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = 'rgba(16,185,129,0.5)';
+                  e.target.style.boxShadow = '0 0 12px rgba(16,185,129,0.25)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'rgba(16,185,129,0.25)';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+              <Search size={14} color="#10b981" style={{
+                position: 'absolute',
+                left: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none'
+              }} />
+            </div>
+            <button
+              type="submit"
+              disabled={!searchQuery.trim()}
+              style={{
+                background: searchQuery.trim() ? 'rgba(16,185,129,0.2)' : 'rgba(100,116,139,0.1)',
+                color: searchQuery.trim() ? '#34d399' : '#64748b',
+                border: `1px solid ${searchQuery.trim() ? 'rgba(16,185,129,0.35)' : 'rgba(100,116,139,0.2)'}`,
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                cursor: searchQuery.trim() ? 'pointer' : 'not-allowed',
+                fontFamily: "'Outfit', sans-serif",
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Go
+            </button>
+          </form>
+        )}
+
         {/* Map Layer Toggle (only when on map view) */}
         {activeView === 'map' && (
           <div style={{
@@ -336,36 +436,39 @@ export default function Navbar({ mapLayer, setMapLayer, user, onLogout, activeSc
         {/* Download Report Button */}
         <button
           onClick={handleDownloadReport}
-          disabled={downloading}
+          disabled={downloading || (activeScan && activeScan.ndvi !== null && activeScan.ndvi < 0)}
           style={{
-            background: downloading
-              ? 'rgba(16,185,129,0.15)'
+            background: (downloading || (activeScan && activeScan.ndvi !== null && activeScan.ndvi < 0))
+              ? 'rgba(100,116,139,0.2)'
               : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            color: '#fff',
-            border: '1px solid rgba(16,185,129,0.4)',
+            color: (downloading || (activeScan && activeScan.ndvi !== null && activeScan.ndvi < 0)) ? '#64748b' : '#fff',
+            border: `1px solid ${(downloading || (activeScan && activeScan.ndvi !== null && activeScan.ndvi < 0)) ? 'rgba(100,116,139,0.3)' : 'rgba(16,185,129,0.4)'}`,
             padding: '6px 14px',
             borderRadius: '10px',
             fontSize: '0.76rem', fontWeight: 700,
-            cursor: downloading ? 'wait' : 'pointer',
+            cursor: (downloading || (activeScan && activeScan.ndvi !== null && activeScan.ndvi < 0)) ? 'not-allowed' : 'pointer',
             transition: 'all 0.2s ease',
             display: 'flex', alignItems: 'center', gap: '6px',
-            boxShadow: '0 0 14px rgba(16,185,129,0.3)',
+            boxShadow: (downloading || (activeScan && activeScan.ndvi !== null && activeScan.ndvi < 0)) ? 'none' : '0 0 14px rgba(16,185,129,0.3)',
             fontFamily: "'Outfit', sans-serif",
             flexShrink: 0,
+            opacity: (downloading || (activeScan && activeScan.ndvi !== null && activeScan.ndvi < 0)) ? 0.5 : 1,
           }}
           onMouseEnter={(e) => {
-            if (!downloading) {
+            if (!downloading && !(activeScan && activeScan.ndvi !== null && activeScan.ndvi < 0)) {
               e.currentTarget.style.transform = 'translateY(-1px)';
               e.currentTarget.style.boxShadow = '0 0 24px rgba(16,185,129,0.55)';
             }
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 0 14px rgba(16,185,129,0.3)';
+            e.currentTarget.style.boxShadow = (downloading || (activeScan && activeScan.ndvi !== null && activeScan.ndvi < 0)) ? 'none' : '0 0 14px rgba(16,185,129,0.3)';
           }}
         >
           {downloading ? (
             <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> {t('downloading')}</>
+          ) : (activeScan && activeScan.ndvi !== null && activeScan.ndvi < 0) ? (
+            <><FileText size={13} /> {t('cropReport')} (Disabled)</>
           ) : (
             <><FileText size={13} /> {t('cropReport')} <Download size={12} /></>
           )}

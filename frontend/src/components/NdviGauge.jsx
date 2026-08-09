@@ -5,7 +5,8 @@ import { Sparkles, MapPin, Clock, FileText, Download, Loader2 } from 'lucide-rea
 export default function NdviGauge({ data, user }) {
   const [downloading, setDownloading] = useState(false);
 
-  if (!data) {
+  // If no data or water body detected, show empty state
+  if (!data || (data.ndvi !== null && data.ndvi < 0)) {
     return (
       <div className="modern-card">
         <div className="card-title">
@@ -26,11 +27,30 @@ export default function NdviGauge({ data, user }) {
   const v = data.ndvi;
   const color = getNdviColor(v);
   const pct = v !== null && v !== undefined ? ((Math.min(Math.max(v, -1), 1) + 1) / 2) * 100 : 50;
+  
+  // Check if this is bare area
+  const isBareArea = v !== null && v >= 0 && v < 0.1;
 
   const handleDownloadReport = async () => {
+    // Don't allow report generation for water bodies
+    if (v !== null && v < 0) {
+      alert('🌊 Cannot generate crop report for water bodies.\n\nPlease select a land area with vegetation for agricultural analysis.');
+      return;
+    }
+    
+    // Warn for bare areas but allow if user confirms
+    if (v !== null && v < 0.1) {
+      const confirmed = window.confirm(
+        '⚠️ This area has very low vegetation coverage.\n\n' +
+        'The report may not provide accurate crop recommendations. Do you want to continue?'
+      );
+      if (!confirmed) return;
+    }
+
     setDownloading(true);
     try {
-      await downloadCropReport(data.lat, data.lon, 'Paddy / Wheat', user || 'Farmer', `Field (${data.lat.toFixed(2)}, ${data.lon.toFixed(2)})`);
+      const locationName = `Scan Point (${data.lat.toFixed(4)}°, ${data.lon.toFixed(4)}°)`;
+      await downloadCropReport(data.lat, data.lon, 'General Agriculture', user || 'Farmer', locationName);
     } catch (err) {
       console.error('Download error:', err);
       alert('Failed to download report. Please try again.');
@@ -44,6 +64,26 @@ export default function NdviGauge({ data, user }) {
       <div className="card-title">
         <Sparkles size={16} color={color} /> Primary Scan (NDVI)
       </div>
+
+      {/* Bare Area Warning */}
+      {isBareArea && (
+        <div style={{
+          padding: '10px 14px',
+          borderRadius: '10px',
+          background: 'rgba(251, 191, 36, 0.15)',
+          border: '2px solid rgba(251, 191, 36, 0.5)',
+          marginBottom: '12px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '1.8rem', marginBottom: '6px' }}>⚠️</div>
+          <div style={{ color: '#fbbf24', fontWeight: 700, fontSize: '0.85rem', marginBottom: '4px' }}>
+            Low Vegetation Area
+          </div>
+          <div style={{ color: '#94a3b8', fontSize: '0.72rem', lineHeight: 1.4 }}>
+            Bare soil, rock, or built-up area with little to no plant coverage.
+          </div>
+        </div>
+      )}
 
       {/* NDVI Value + Badge row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>

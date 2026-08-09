@@ -2,7 +2,8 @@ import React from 'react';
 import { Wheat, Sparkles } from 'lucide-react';
 
 export default function CropSuggestions({ ndviData, weatherData, mlData }) {
-  if (!ndviData || !weatherData) {
+  // Don't show anything if no data OR if water body detected
+  if (!ndviData || !weatherData || (ndviData.ndvi !== null && ndviData.ndvi < 0)) {
     return (
       <div className="modern-card">
         <div className="card-title" style={{ color: '#fbbf24' }}>
@@ -83,6 +84,36 @@ export default function CropSuggestions({ ndviData, weatherData, mlData }) {
         ))}
       </div>
 
+      {/* Current Conditions Summary */}
+      <div style={{
+        padding: '10px 12px',
+        borderRadius: '8px',
+        background: 'rgba(16, 185, 129, 0.08)',
+        border: '1px solid rgba(16, 185, 129, 0.25)',
+        marginTop: '8px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px'
+      }}>
+        <div style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 700, marginBottom: '4px' }}>
+          Current Conditions:
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '0.74rem' }}>
+          <div style={{ color: '#94a3b8' }}>
+            🌡️ Temperature: <span style={{ color: '#fff', fontWeight: 600 }}>{temp !== null ? `${temp}°C` : 'N/A'}</span>
+          </div>
+          <div style={{ color: '#94a3b8' }}>
+            💧 Soil Moisture: <span style={{ color: '#fff', fontWeight: 600 }}>{moist !== null ? `${(moist * 100).toFixed(0)}%` : 'N/A'}</span>
+          </div>
+          <div style={{ color: '#94a3b8' }}>
+            🌧️ Rainfall: <span style={{ color: '#fff', fontWeight: 600 }}>{weatherData.precipitation !== null ? `${weatherData.precipitation} mm` : 'N/A'}</span>
+          </div>
+          <div style={{ color: '#94a3b8' }}>
+            💨 Wind: <span style={{ color: '#fff', fontWeight: 600 }}>{weatherData.windspeed !== null ? `${weatherData.windspeed} km/h` : 'N/A'}</span>
+          </div>
+        </div>
+      </div>
+
       {mlData && mlData.predicted_condition && (
         <div style={{
           padding: '8px 12px',
@@ -93,7 +124,8 @@ export default function CropSuggestions({ ndviData, weatherData, mlData }) {
           color: '#6ee7b7',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px'
+          gap: '8px',
+          marginTop: '8px'
         }}>
           <Sparkles size={14} color="#10b981" />
           <span>ML Predicted Health: <strong>{mlData.predicted_condition}</strong> ({mlData.condition_for_crop})</span>
